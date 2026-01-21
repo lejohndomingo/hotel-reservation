@@ -24,6 +24,7 @@ class HRT_Settings {
         register_setting('hrt_settings_group', 'hr_stripe_pk', [ 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ]);
         register_setting('hrt_settings_group', 'hr_stripe_sk', [ 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ]);
         register_setting('hrt_settings_group', 'hr_stripe_webhook_secret', [ 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ]);
+        register_setting('hrt_settings_group', 'hr_min_nights_mode', [ 'type' => 'string', 'default' => 'arrival_only', 'sanitize_callback' => 'sanitize_text_field' ]);
 
         add_settings_section('hrt_main', __('General', 'hotel-reservation-lite'), function() {
             echo '<p>' . esc_html__('Configure currency and formatting.', 'hotel-reservation-lite') . '</p>';
@@ -76,3 +77,19 @@ class HRT_Settings {
         echo '</div>';
     }
 }
+
+
+add_settings_section('hrt_rules', __('Stay Rules', 'hotel-reservation-lite'), function(){
+    echo '<p>' . esc_html__('Control how minimum nights per season are enforced.', 'hotel-reservation-lite') . '</p>';
+}, 'hrt-settings');
+
+add_settings_field('hr_min_nights_mode_field', __('Min nights enforcement', 'hotel-reservation-lite'), function(){
+    $val = get_option('hr_min_nights_mode', 'arrival_only');
+    ?>
+    <label><input type="radio" name="hr_min_nights_mode" value="arrival_only" <?php checked($val, 'arrival_only'); ?> />
+        <?php esc_html_e('Arrival night only', 'hotel-reservation-lite'); ?></label><br/>
+    <label><input type="radio" name="hr_min_nights_mode" value="cover_all" <?php checked($val, 'cover_all'); ?> />
+        <?php esc_html_e('Every overlapped season (strict)', 'hotel-reservation-lite'); ?></label>
+    <p class="description"><?php esc_html_e('Arrival-only: only the season containing the check-in date imposes its minimum. Strict: each season overlapped by the stay must meet its own minimum for the nights falling inside it.', 'hotel-reservation-lite'); ?></p>
+    <?php
+}, 'hrt-settings', 'hrt_rules');

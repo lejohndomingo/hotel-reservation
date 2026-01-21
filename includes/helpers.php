@@ -115,3 +115,57 @@ class HRT_Helpers {
         return (float) $dp[0];
     }
 }
+
+
+/**
+ * Enforce min nights per season.
+ * Mode (option hr_min_nights_mode):
+ *  - 'arrival_only' (default): If check-in night falls inside a season with min>0, total stay nights must be >= min.
+ *  - 'cover_all': For every season overlapped by the stay, the number of nights that fall in that season must be 0 or >= min.
+ * Returns ['ok'=>bool, 'message'=>string]
+ */
+public static function season_min_nights_check($type_id, $checkin, $checkout) {
+    $seasons = get_post_meta($type_id, 'hr_seasons', true);
+    if (!is_array($seasons)) { $seasons = []; }
+    $mode = get_option('hr_min_nights_mode', 'arrival_only');
+    $nights = self::count_nights($checkin, $checkout);
+    if ($nights <= 0) {
+        return [ 'ok' => false, 'message' => __('Invalid dates.', 'hotel-reservation-lite') ];
+    }
+    // Helper to count nights in intersection with a season
+    $count_overlap_nights = function($s, $e) use ($checkin, $checkout) {
+        $start = max(strtotime($s), strtotime($checkin));
+        $end   = min(strtotime($e), strtotime($checkout));
+        if ($start >= $end) return 0;
+        $d1 = new DateTime(date('Y-m-d', $start));
+        $d2 = new DateTime(date('Y-m-d', $end));
+        return (int)$d1->diff($d2)->format('%a');
+    };
+
+    if ($mode === 'arrival_only') {
+        $d = $checkin; // first night
+        foreach ($seasons as $row) {
+            $s = $row['start'] ?? ''; $e = $row['end'] ?? '';
+            $min = isset($row['min']) ? (int)$row['min'] : 0;
+            if ($min > 0 && $s && $e && $d >= $s && $d < $e) {
+                if ($nights < $min) {
+                    return [ 'ok' => false, 'message' => sprintf(__('Minimum %d nights apply for selected dates.', 'hotel-reservation-lite'), $min) ];
+                }
+                break; // first matching season governs arrival rule
+            }
+        }
+        return [ 'ok' => true, 'message' => '' ];
+    }
+    // cover_all mode
+    foreach ($seasons as $row) {
+        $s = $row['start'] ?? ''; $e = $row['end'] ?? '';
+        $min = isset($row['min']) ? (int)$row['min'] : 0;
+        if ($min > 0 && $s && $e) {
+            $k = $count_overlap_nights($s, $e);
+            if ($k > 0 && $k < $min) {
+                return [ 'ok' => false, 'message' => sprintf(__('Nights inside %s require at least %d nights (you selected %d).', 'hotel-reservation-lite'), esc_html($row['label'] ?? __('season', 'hotel-reservation-lite')), $min, $k) ];
+            }
+        }
+    }
+    return [ 'ok' => true, 'message' => '' ];
+}

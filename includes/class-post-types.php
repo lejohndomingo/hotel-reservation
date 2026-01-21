@@ -79,6 +79,7 @@ class HRT_Post_Types {
                         <th><?php esc_html_e('Start date', 'hotel-reservation-lite'); ?></th>
                         <th><?php esc_html_e('End date', 'hotel-reservation-lite'); ?></th>
                         <th><?php esc_html_e('Price / night', 'hotel-reservation-lite'); ?></th>
+                        <th><?php esc_html_e('Min nights', 'hotel-reservation-lite'); ?></th>
                         <th></th>
                     </tr>
                 </thead>
@@ -89,6 +90,7 @@ class HRT_Post_Types {
                         <td><input type="date" name="hr_season_start[]" value="<?php echo esc_attr($row['start'] ?? ''); ?>" /></td>
                         <td><input type="date" name="hr_season_end[]" value="<?php echo esc_attr($row['end'] ?? ''); ?>" /></td>
                         <td><input type="number" step="0.01" min="0" name="hr_season_price[]" value="<?php echo esc_attr($row['price'] ?? ''); ?>" /></td>
+                        <td><input type="number" step="1" min="0" name="hr_season_min[]" value="<?php echo esc_attr($row['min'] ?? ''); ?>" /></td>
                         <td><button type="button" class="button hrt-remove-row">&times;</button></td>
                     </tr>
                     <?php endforeach; ?>
@@ -136,14 +138,16 @@ class HRT_Post_Types {
         $starts = isset($_POST['hr_season_start']) ? (array) $_POST['hr_season_start'] : [];
         $ends   = isset($_POST['hr_season_end'])   ? (array) $_POST['hr_season_end']   : [];
         $prices = isset($_POST['hr_season_price']) ? (array) $_POST['hr_season_price'] : [];
+        $mins   = isset($_POST['hr_season_min'])   ? (array) $_POST['hr_season_min']   : [];
         $seasons = [];
-        $count = max(count($labels), count($starts), count($ends), count($prices));
+        $count = max(count($labels), count($starts), count($ends), count($prices), count($mins));
         for ($i=0; $i<$count; $i++) {
             $label = sanitize_text_field($labels[$i] ?? '');
             $s = sanitize_text_field($starts[$i] ?? '');
             $e = sanitize_text_field($ends[$i] ?? '');
             $p = floatval($prices[$i] ?? 0);
-            if ($s && $e && $p > 0) { $seasons[] = ['label'=>$label, 'start'=>$s, 'end'=>$e, 'price'=>$p]; }
+            $m = intval($mins[$i] ?? 0);
+            if ($s && $e && $p > 0) { $seasons[] = ['label'=>$label, 'start'=>$s, 'end'=>$e, 'price'=>$p, 'min'=>$m > 0 ? $m : 0]; }
         }
         update_post_meta($post_id, 'hr_seasons', $seasons);
     }

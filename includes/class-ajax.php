@@ -29,6 +29,8 @@ class HRT_Ajax {
         if (!HRT_Helpers::valid_dates($checkin, $checkout)) {
             wp_send_json_error(['message' => __('Invalid dates', 'hotel-reservation-lite')], 400);
         }
+        $mn = HRT_Helpers::season_min_nights_check($type_id, $checkin, $checkout);
+        if (empty($mn['ok'])) { wp_send_json_error(['message' => $mn['message']], 400); }
         $avail = HRT_Helpers::room_type_availability($type_id, $checkin, $checkout);
         $total = HRT_Helpers::calculate_total_best_rate($type_id, $checkin, $checkout);
         wp_send_json_success([
@@ -55,6 +57,10 @@ class HRT_Ajax {
         if (!HRT_Helpers::valid_dates($checkin, $checkout)) {
             wp_send_json_error(['message' => __('Invalid dates.', 'hotel-reservation-lite')], 400);
         }
+        $mn = HRT_Helpers::season_min_nights_check($type_id, $checkin, $checkout);
+        if (empty($mn['ok'])) { wp_send_json_error(['message' => $mn['message']], 400); }
+        $mn = HRT_Helpers::season_min_nights_check($type_id, $checkin, $checkout);
+        if (empty($mn['ok'])) { wp_send_json_error(['message' => $mn['message']], 400); }
         $avail = HRT_Helpers::room_type_availability($type_id, $checkin, $checkout);
         if (!$avail['available']) {
             wp_send_json_error(['message' => __('Not available for selected dates.', 'hotel-reservation-lite')], 409);
@@ -109,6 +115,10 @@ Total: %s
         if (!HRT_Helpers::valid_dates($checkin, $checkout)) {
             wp_send_json_error(['message' => __('Invalid dates.', 'hotel-reservation-lite')], 400);
         }
+        $mn = HRT_Helpers::season_min_nights_check($type_id, $checkin, $checkout);
+        if (empty($mn['ok'])) { wp_send_json_error(['message' => $mn['message']], 400); }
+        $mn = HRT_Helpers::season_min_nights_check($type_id, $checkin, $checkout);
+        if (empty($mn['ok'])) { wp_send_json_error(['message' => $mn['message']], 400); }
         $avail = HRT_Helpers::room_type_availability($type_id, $checkin, $checkout);
         if (!$avail['available']) {
             wp_send_json_error(['message' => __('Not available for selected dates.', 'hotel-reservation-lite')], 409);
