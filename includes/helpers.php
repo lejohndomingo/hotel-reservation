@@ -2,7 +2,7 @@
 <?php
 if (!defined('ABSPATH')) { exit; }
 
-function hr_currency_symbol() {
+function hrt_currency_symbol() {
     $cur = get_option('hr_currency', 'PHP');
     switch (strtoupper($cur)) {
         case 'USD': return '$';
@@ -13,13 +13,13 @@ function hr_currency_symbol() {
     }
 }
 
-function hr_format_price($amount) {
-    $symbol = hr_currency_symbol();
+function hrt_format_price($amount) {
+    $symbol = hrt_currency_symbol();
     $dec = get_option('hr_price_decimals', 2);
     return $symbol . number_format((float)$amount, (int)$dec);
 }
 
-class HR_Helpers {
+class HRT_Helpers {
     public static function valid_dates($checkin, $checkout) {
         $ci = strtotime($checkin);
         $co = strtotime($checkout);
@@ -37,28 +37,37 @@ class HR_Helpers {
         return (int) $ci->diff($co)->format('%a');
     }
 
-    public static function room_available($room_id, $checkin, $checkout) {
+    /**
+     * Availability for a room type with quantity.
+     * Returns ['available' => bool, 'remaining' => int, 'booked' => int]
+     */
+    public static function room_type_availability($type_id, $checkin, $checkout) {
+        $qty = (int) get_post_meta($type_id, 'hr_quantity', true);
+        if ($qty < 1) $qty = 1;
         $args = [
-            'post_type' => 'hr_booking',
+            'post_type' => 'hrt_booking',
             'post_status' => 'publish',
             'posts_per_page' => -1,
+            'fields' => 'ids',
             'meta_query' => [
                 'relation' => 'AND',
-                [ 'key' => 'hr_room_id', 'value' => $room_id, 'compare' => '=' ],
+                [ 'key' => 'hr_room_type_id', 'value' => $type_id, 'compare' => '=' ],
                 [ 'key' => 'hr_status', 'value' => ['pending','pending_payment','confirmed'], 'compare' => 'IN' ],
             ]
         ];
         $q = new WP_Query($args);
-        $available = true;
-        if ($q->have_posts()) {
-            while ($q->have_posts()) { $q->the_post();
-                $b_ci = get_post_meta(get_the_ID(), 'hr_checkin', true);
-                $b_co = get_post_meta(get_the_ID(), 'hr_checkout', true);
-                if (self::dates_overlap($checkin, $checkout, $b_ci, $b_co)) { $available = false; break; }
+        $booked = 0;
+        if ($q->posts) {
+            foreach ($q->posts as $bid) {
+                $b_ci = get_post_meta($bid, 'hr_checkin', true);
+                $b_co = get_post_meta($bid, 'hr_checkout', true);
+                if (self::dates_overlap($checkin, $checkout, $b_ci, $b_co)) {
+                    $booked++;
+                }
             }
-            wp_reset_postdata();
         }
-        return $available;
+        $remaining = max(0, $qty - $booked);
+        return [ 'available' => ($remaining > 0), 'remaining' => $remaining, 'booked' => $booked ];
     }
 
     public static function dates_overlap($start1, $end1, $start2, $end2) {
