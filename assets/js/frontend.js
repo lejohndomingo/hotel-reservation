@@ -17,7 +17,7 @@
   }
 
   document.addEventListener('click', function(e){
-    // List view availability
+    // List availability
     if(e.target && e.target.classList.contains('hrt-check-btn')){
       var type = e.target.closest('.hrt-type');
       var wrap = e.target.closest('.hrt-search');

@@ -33,7 +33,7 @@ class HRT_Post_Types {
 
         // Meta boxes
         add_action('add_meta_boxes', function() {
-            add_meta_box('hrt_type_meta', __('Room Type Details', 'hotel-reservation-lite'), ['HRT_Post_Types', 'render_type_meta'], 'hrt_room_type', 'side', 'default');
+            add_meta_box('hrt_type_meta', __('Room Type Details', 'hotel-reservation-lite'), ['HRT_Post_Types', 'render_type_meta'], 'hrt_room_type', 'normal', 'default');
         });
         add_action('save_post_hrt_room_type', ['HRT_Post_Types', 'save_type_meta']);
     }
@@ -44,8 +44,10 @@ class HRT_Post_Types {
         $capacity = get_post_meta($post->ID, 'hr_capacity', true);
         $quantity = get_post_meta($post->ID, 'hr_quantity', true);
         ?>
+        <style>.hrt-season-table input{width:100%;}</style>
+        <div class="postbox-inside">
         <p>
-            <label for="hr_price_per_night"><strong><?php esc_html_e('Price per night', 'hotel-reservation-lite'); ?></strong></label>
+            <label for="hr_price_per_night"><strong><?php esc_html_e('Base price per night', 'hotel-reservation-lite'); ?></strong></label>
             <input type="number" min="0" step="0.01" id="hr_price_per_night" name="hr_price_per_night" value="<?php echo esc_attr($price); ?>" class="widefat" />
         </p>
         <p>
@@ -56,6 +58,52 @@ class HRT_Post_Types {
             <label for="hr_quantity"><strong><?php esc_html_e('Quantity (number of rooms of this type)', 'hotel-reservation-lite'); ?></strong></label>
             <input type="number" min="1" step="1" id="hr_quantity" name="hr_quantity" value="<?php echo esc_attr($quantity ? $quantity : 1); ?>" class="widefat" />
         </p>
+        <hr/>
+        <p><strong><?php esc_html_e('Seasonal pricing', 'hotel-reservation-lite'); ?></strong></p>
+        <p class="description"><?php esc_html_e('Add date ranges with a custom price per night. These override the base price for nights that fall in the range. End date is exclusive.', 'hotel-reservation-lite'); ?></p>
+        <div id="hrt-seasons">
+            <?php $seasons = get_post_meta($post->ID, 'hr_seasons', true); if (!is_array($seasons)) { $seasons = []; } ?>
+            <table class="widefat fixed striped hrt-season-table">
+                <thead>
+                    <tr>
+                        <th><?php esc_html_e('Label (optional)', 'hotel-reservation-lite'); ?></th>
+                        <th><?php esc_html_e('Start date', 'hotel-reservation-lite'); ?></th>
+                        <th><?php esc_html_e('End date', 'hotel-reservation-lite'); ?></th>
+                        <th><?php esc_html_e('Price / night', 'hotel-reservation-lite'); ?></th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="hrt-seasons-body">
+                    <?php foreach ($seasons as $idx => $row): ?>
+                    <tr>
+                        <td><input type="text" name="hr_season_label[]" value="<?php echo esc_attr($row['label'] ?? ''); ?>" /></td>
+                        <td><input type="date" name="hr_season_start[]" value="<?php echo esc_attr($row['start'] ?? ''); ?>" /></td>
+                        <td><input type="date" name="hr_season_end[]" value="<?php echo esc_attr($row['end'] ?? ''); ?>" /></td>
+                        <td><input type="number" step="0.01" min="0" name="hr_season_price[]" value="<?php echo esc_attr($row['price'] ?? ''); ?>" /></td>
+                        <td><button type="button" class="button hrt-remove-row">&times;</button></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <p><button type="button" class="button" id="hrt-add-season"><?php esc_html_e('Add season', 'hotel-reservation-lite'); ?></button></p>
+        </div>
+        <script>
+        (function(){
+          var body = document.getElementById('hrt-seasons-body');
+          var btn = document.getElementById('hrt-add-season');
+          if(btn){ btn.addEventListener('click', function(){
+            var tr = document.createElement('tr');
+            tr.innerHTML = '              <td><input type="text" name="hr_season_label[]" /></td>              <td><input type="date" name="hr_season_start[]" /></td>              <td><input type="date" name="hr_season_end[]" /></td>              <td><input type="number" step="0.01" min="0" name="hr_season_price[]" /></td>              <td><button type="button" class="button hrt-remove-row">&times;</button></td>';
+            body.appendChild(tr);
+          }); }
+          document.addEventListener('click', function(e){
+            if(e.target && e.target.classList.contains('hrt-remove-row')){
+              var tr = e.target.closest('tr'); if(tr) tr.remove();
+            }
+          });
+        })();
+        </script>
+        </div>
         <?php
     }
 
@@ -69,6 +117,22 @@ class HRT_Post_Types {
         update_post_meta($post_id, 'hr_price_per_night', $price);
         update_post_meta($post_id, 'hr_capacity', max(1, $cap));
         update_post_meta($post_id, 'hr_quantity', max(1, $qty));
+
+        // Save seasons
+        $labels = isset($_POST['hr_season_label']) ? (array) $_POST['hr_season_label'] : [];
+        $starts = isset($_POST['hr_season_start']) ? (array) $_POST['hr_season_start'] : [];
+        $ends   = isset($_POST['hr_season_end'])   ? (array) $_POST['hr_season_end']   : [];
+        $prices = isset($_POST['hr_season_price']) ? (array) $_POST['hr_season_price'] : [];
+        $seasons = [];
+        $count = max(count($labels), count($starts), count($ends), count($prices));
+        for ($i=0; $i<$count; $i++) {
+            $label = sanitize_text_field($labels[$i] ?? '');
+            $s = sanitize_text_field($starts[$i] ?? '');
+            $e = sanitize_text_field($ends[$i] ?? '');
+            $p = floatval($prices[$i] ?? 0);
+            if ($s && $e && $p > 0) { $seasons[] = ['label'=>$label, 'start'=>$s, 'end'=>$e, 'price'=>$p]; }
+        }
+        update_post_meta($post_id, 'hr_seasons', $seasons);
     }
 
     private static function register_bookings() {

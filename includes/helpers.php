@@ -37,14 +37,10 @@ class HRT_Helpers {
         return (int) $ci->diff($co)->format('%a');
     }
 
-    /**
-     * Availability for a room type with quantity.
-     * Returns ['available' => bool, 'remaining' => int, 'booked' => int]
-     */
     public static function room_type_availability($type_id, $checkin, $checkout) {
         $qty = (int) get_post_meta($type_id, 'hr_quantity', true);
         if ($qty < 1) $qty = 1;
-        $args = [
+        $q = new WP_Query([
             'post_type' => 'hrt_booking',
             'post_status' => 'publish',
             'posts_per_page' => -1,
@@ -54,16 +50,13 @@ class HRT_Helpers {
                 [ 'key' => 'hr_room_type_id', 'value' => $type_id, 'compare' => '=' ],
                 [ 'key' => 'hr_status', 'value' => ['pending','pending_payment','confirmed'], 'compare' => 'IN' ],
             ]
-        ];
-        $q = new WP_Query($args);
+        ]);
         $booked = 0;
         if ($q->posts) {
             foreach ($q->posts as $bid) {
                 $b_ci = get_post_meta($bid, 'hr_checkin', true);
                 $b_co = get_post_meta($bid, 'hr_checkout', true);
-                if (self::dates_overlap($checkin, $checkout, $b_ci, $b_co)) {
-                    $booked++;
-                }
+                if (self::dates_overlap($checkin, $checkout, $b_ci, $b_co)) { $booked++; }
             }
         }
         $remaining = max(0, $qty - $booked);
@@ -74,5 +67,35 @@ class HRT_Helpers {
         $s1 = strtotime($start1); $e1 = strtotime($end1);
         $s2 = strtotime($start2); $e2 = strtotime($end2);
         return ($s1 < $e2) && ($s2 < $e1);
+    }
+
+    /**
+     * Seasonal pricing total. For each night starting from check-in,
+     * pick the season price if date in [start, end) else base.
+     */
+    public static function calculate_total($type_id, $checkin, $checkout) {
+        $nights = self::count_nights($checkin, $checkout);
+        if ($nights <= 0) return 0.0;
+        $base = (float) get_post_meta($type_id, 'hr_price_per_night', true);
+        $seasons = get_post_meta($type_id, 'hr_seasons', true);
+        if (!is_array($seasons)) { $seasons = []; }
+        $total = 0.0;
+        $cur = new DateTime($checkin);
+        $end = new DateTime($checkout);
+        while ($cur < $end) {
+            $price = $base;
+            $d = $cur->format('Y-m-d');
+            foreach ($seasons as $row) {
+                $s = !empty($row['start']) ? $row['start'] : '';
+                $e = !empty($row['end']) ? $row['end'] : '';
+                $p = isset($row['price']) ? (float)$row['price'] : 0.0;
+                if ($s && $e && $p > 0) {
+                    if ($d >= $s && $d < $e) { $price = $p; break; }
+                }
+            }
+            $total += $price;
+            $cur->modify('+1 day');
+        }
+        return $total;
     }
 }

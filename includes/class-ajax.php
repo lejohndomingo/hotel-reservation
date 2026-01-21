@@ -31,15 +31,11 @@ class HRT_Ajax {
             wp_send_json_error(['message' => __('Invalid dates', 'hotel-reservation-lite')], 400);
         }
         $avail = HRT_Helpers::room_type_availability($type_id, $checkin, $checkout);
-        $nights = HRT_Helpers::count_nights($checkin, $checkout);
-        $price = (float) get_post_meta($type_id, 'hr_price_per_night', true);
-        $total = $nights * $price;
+        $total = HRT_Helpers::calculate_total($type_id, $checkin, $checkout);
         wp_send_json_success([
             'available' => (bool) $avail['available'],
             'remaining' => (int) $avail['remaining'],
             'booked'    => (int) $avail['booked'],
-            'nights'    => $nights,
-            'price_per_night' => $price,
             'total'     => $total,
             'formatted_total' => hrt_format_price($total),
         ]);
@@ -65,9 +61,7 @@ class HRT_Ajax {
             wp_send_json_error(['message' => __('Not available for selected dates.', 'hotel-reservation-lite')], 409);
         }
 
-        $nights = HRT_Helpers::count_nights($checkin, $checkout);
-        $price  = (float) get_post_meta($type_id, 'hr_price_per_night', true);
-        $total  = $nights * $price;
+        $total  = HRT_Helpers::calculate_total($type_id, $checkin, $checkout);
 
         $booking_id = wp_insert_post([
             'post_type' => 'hrt_booking',
@@ -122,9 +116,7 @@ Total: %s
             wp_send_json_error(['message' => __('Not available for selected dates.', 'hotel-reservation-lite')], 409);
         }
 
-        $nights = HRT_Helpers::count_nights($checkin, $checkout);
-        $price  = (float) get_post_meta($type_id, 'hr_price_per_night', true);
-        $total  = $nights * $price;
+        $total  = HRT_Helpers::calculate_total($type_id, $checkin, $checkout);
         $currency = strtolower(get_option('hr_currency', 'PHP'));
         $amount_minor = HRT_Stripe::minor_amount($currency, $total);
 
