@@ -1,9 +1,9 @@
 
 <?php
 /**
- * Plugin Name: Hotel Room Reservation (Lite)
- * Description: A simple hotel room reservation plugin with Rooms & Bookings, availability checks, and shortcodes. No payment gateway (offline/confirm-by-email).
- * Version: 1.0.0
+ * Plugin Name: Hotel Room Reservation (Stripe-Ready)
+ * Description: Hotel room reservation with Rooms & Bookings (CPT), availability checks, shortcodes, and optional Stripe card payments.
+ * Version: 1.1.0
  * Author: M365 Copilot
  * License: GPL-2.0-or-later
  * Text Domain: hotel-reservation-lite
@@ -12,7 +12,7 @@
 if (!defined('ABSPATH')) { exit; }
 
 // Constants
-if (!defined('HR_PLUGIN_VERSION')) define('HR_PLUGIN_VERSION', '1.0.0');
+if (!defined('HR_PLUGIN_VERSION')) define('HR_PLUGIN_VERSION', '1.1.0');
 if (!defined('HR_PLUGIN_FILE'))    define('HR_PLUGIN_FILE', __FILE__);
 if (!defined('HR_PLUGIN_PATH'))    define('HR_PLUGIN_PATH', plugin_dir_path(__FILE__));
 if (!defined('HR_PLUGIN_URL'))     define('HR_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -22,6 +22,7 @@ require_once HR_PLUGIN_PATH . 'includes/helpers.php';
 require_once HR_PLUGIN_PATH . 'includes/class-hotel-post-types.php';
 require_once HR_PLUGIN_PATH . 'includes/class-hotel-ajax.php';
 require_once HR_PLUGIN_PATH . 'includes/class-hotel-settings.php';
+require_once HR_PLUGIN_PATH . 'includes/class-hotel-stripe.php';
 
 class HR_Plugin {
     public function __construct() {
@@ -40,7 +41,6 @@ class HR_Plugin {
     }
 
     public static function activate() {
-        // Register CPTs before flushing.
         HR_Post_Types::register();
         flush_rewrite_rules();
     }
@@ -63,10 +63,16 @@ class HR_Plugin {
         wp_register_style('hr-frontend', HR_PLUGIN_URL . 'assets/css/frontend.css', [], HR_PLUGIN_VERSION);
         wp_enqueue_style('hr-frontend');
 
-        wp_register_script('hr-frontend', HR_PLUGIN_URL . 'assets/js/frontend.js', ['jquery'], HR_PLUGIN_VERSION, true);
+        // Stripe.js (conditionally safe to load always; no key exposed here)
+        wp_enqueue_script('stripe-js', 'https://js.stripe.com/v3/', [], null, true);
+
+        wp_register_script('hr-frontend', HR_PLUGIN_URL . 'assets/js/frontend.js', ['jquery','stripe-js'], HR_PLUGIN_VERSION, true);
         $local = [
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce'    => wp_create_nonce('hr_ajax_nonce'),
+            'stripe_pk'=> get_option('hr_stripe_pk', ''),
+            'currency' => strtolower(get_option('hr_currency', 'PHP')),
+            'payments_enabled' => (bool) get_option('hr_stripe_sk', ''),
         ];
         wp_localize_script('hr-frontend', 'HR_Ajax', $local);
         wp_enqueue_script('hr-frontend');
@@ -74,7 +80,6 @@ class HR_Plugin {
 
     /* ================== Shortcodes ================== */
     public function shortcode_search($atts = [], $content = '') {
-        // Simple room list with booking form links.
         $q = new WP_Query([
             'post_type' => 'hr_room',
             'posts_per_page' => -1,
@@ -166,9 +171,18 @@ class HR_Plugin {
                         <span class="hr-total-amount" data-price="<?php echo esc_attr($price); ?>"><?php echo esc_html(hr_format_price($price)); ?></span>
                     </div>
                 </div>
+                <div class="hr-payment">
+                    <div class="hr-pay-card" style="display:none;">
+                        <label><strong><?php esc_html_e('Card details', 'hotel-reservation-lite'); ?></strong></label>
+                        <div class="hr-card-element" style="padding:10px;border:1px solid #ddd;border-radius:6px;background:#fff;"></div>
+                    </div>
+                </div>
                 <div class="hr-actions">
                     <button type="button" class="hr-check-availability-btn"><?php esc_html_e('Check Availability', 'hotel-reservation-lite'); ?></button>
                     <button type="button" class="hr-create-booking-btn" disabled><?php esc_html_e('Reserve (No Payment)', 'hotel-reservation-lite'); ?></button>
+                    <button type="button" class="hr-pay-reserve-btn" disabled style="display:none; background:#0ea5e9;color:#fff;border-color:#0284c7;">
+                        <?php esc_html_e('Pay & Reserve (Card)', 'hotel-reservation-lite'); ?>
+                    </button>
                     <span class="hr-status"></span>
                 </div>
             </form>

@@ -1,0 +1,87 @@
+What’s included
+Folder structure
+hotel-reservation/
+├─ ai-hotel-reservation.php         ← main plugin file
+├─ includes/
+│  ├─ class-hotel-post-types.php    ← Rooms & Bookings CPTs + meta boxes
+│  ├─ class-hotel-ajax.php          ← AJAX: check availability & create booking
+│  ├─ class-hotel-settings.php      ← Settings page (currency/decimals)
+│  └─ helpers.php                   ← Utilities: price formatting, date checks
+├─ assets/
+│  ├─ js/frontend.js                ← Front-end logic
+│  └─ css/frontend.css              ← Minimal styling
+└─ readme.txt
+
+
+Quick start
+
+Install & Activate the ZIP above.
+Go to Rooms → Add New:
+
+Set a price per night and capacity in the right sidebar box.
+
+
+Create a page:
+
+Add [hotel_search] to list all rooms with date inputs + availability checks.
+On each room’s single page, add [hotel_booking] (or use [hotel_booking room_id="123"] on any page).
+
+
+Configure currency under Settings → Hotel Reservation (default is ₱ PHP, decimals 2).
+
+
+How availability works (no overbooking)
+Availability is computed server-side by checking if any pending/confirmed booking overlaps the requested dates for the same room:
+PHP// helpers.php (HR_Helpers::room_available)'meta_query' => [  [ 'key' => 'hr_room_id', 'value' => $room_id, 'compare' => '=' ],  [ 'key' => 'hr_status', 'value' => ['pending','confirmed'], 'compare' => 'IN' ]]// Overlap rule: (startA < endB) && (startB < endA)Show more lines
+If there’s an overlap, the room is not available.
+
+Security and best practices built in
+
+AJAX nonces (check_ajax_referer('hr_ajax_nonce','nonce'))
+Sanitization (sanitize_text_field, sanitize_email, absint, floatval)
+Capability checks on saves
+No key exposure; no payments in this lite version (email-based requests)
+
+
+Using the shortcodes
+1) Search & inline availability
+Plain Text[hotel_search]Show more lines
+
+Lets visitors pick check-in / check-out dates.
+Shows each room with a “Check availability” button and total price estimate.
+
+2) Booking form
+Plain Text[hotel_booking room_id="123"]Show more lines
+
+Shows a complete form (dates + guest info).
+Reserve (No Payment) creates a Booking post with Pending status and emails both admin & guest.
+
+
+You can also put [hotel_booking] directly on a Room single page (it auto-detects the current room).
+
+
+What you can customize next
+
+Payment gateway (Stripe/PayPal)
+
+After successful payment, set booking status to confirmed.
+
+
+Inventory (multiple identical rooms of a type)
+
+Add a “quantity” meta for room types and count overlapping bookings ≤ quantity.
+
+
+Seasonal pricing / coupons / taxes
+Email templates (HTML emails, branded)
+Calendar view for admins (month grid with bookings)
+Block editor blocks (in addition to shortcodes)
+
+If you want, I can extend this plugin for any of the above in the next iteration.
+
+How to test locally
+
+Add one or two Rooms (e.g., “Deluxe Queen”, price 2500).
+Create a page with [hotel_search], view it, select dates, and click Check availability.
+Click Book now → fill guest details → Reserve (No Payment).
+Check Bookings in the admin to see the new record + emails.

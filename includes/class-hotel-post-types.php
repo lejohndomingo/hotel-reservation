@@ -31,7 +31,6 @@ class HR_Post_Types {
         ];
         register_post_type('hr_room', $args);
 
-        // Room meta
         add_action('add_meta_boxes', function() {
             add_meta_box('hr_room_meta', __('Room Details', 'hotel-reservation-lite'), ['HR_Post_Types', 'render_room_meta'], 'hr_room', 'side', 'default');
         });
@@ -126,7 +125,7 @@ class HR_Post_Types {
             <input type="number" step="0.01" name="hr_total" value="<?php echo esc_attr($total); ?>" />
             <label><strong><?php esc_html_e('Status', 'hotel-reservation-lite'); ?></strong></label>
             <select name="hr_status">
-                <?php $statuses = ['pending' => __('Pending', 'hotel-reservation-lite'), 'confirmed' => __('Confirmed', 'hotel-reservation-lite'), 'cancelled' => __('Cancelled', 'hotel-reservation-lite')];
+                <?php $statuses = ['pending' => __('Pending', 'hotel-reservation-lite'), 'pending_payment' => __('Pending Payment', 'hotel-reservation-lite'), 'confirmed' => __('Confirmed', 'hotel-reservation-lite'), 'cancelled' => __('Cancelled', 'hotel-reservation-lite')];
                 foreach ($statuses as $k => $lbl) {
                     printf('<option value="%s" %s>%s</option>', esc_attr($k), selected($status, $k, false), esc_html($lbl));
                 } ?>
@@ -155,7 +154,6 @@ class HR_Post_Types {
                 update_post_meta($post_id, $k, $val);
             }
         }
-        // Ensure title for easy identification
         if (get_post_type($post_id) === 'hr_booking') {
             wp_update_post([
                 'ID' => $post_id,

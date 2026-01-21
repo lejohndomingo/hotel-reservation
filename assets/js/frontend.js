@@ -1,9 +1,6 @@
 
 (function(){
   function qs(root, sel){ return root.querySelector(sel); }
-  function qsa(root, sel){ return Array.prototype.slice.call(root.querySelectorAll(sel)); }
-  function currencyFormat(val){ return val; }
-
   function post(action, data){
     var fd = new FormData();
     fd.append('action', action);
@@ -19,8 +16,8 @@
     return {checkin: ci && ci.value, checkout: co && co.value};
   }
 
-  // Search view event handlers
   document.addEventListener('click', function(e){
+    // Availability on search list
     if(e.target && e.target.classList.contains('hr-check-btn')){
       var room = e.target.closest('.hr-room');
       var wrap = e.target.closest('.hr-search');
@@ -29,21 +26,21 @@
       status.textContent = '...';
       post('hr_check_availability', { room_id: room.getAttribute('data-room-id'), checkin: dates.checkin, checkout: dates.checkout })
         .then(function(res){
-          if(res && res.success){
-            status.textContent = res.data.available ? ('Available — Total ' + res.data.formatted_total) : 'Not available';
-          } else {
-            status.textContent = (res && res.data && res.data.message) ? res.data.message : 'Error';
-          }
+          if(res && res.success){ status.textContent = res.data.available ? ('Available — Total ' + res.data.formatted_total) : 'Not available'; }
+          else { status.textContent = (res && res.data && res.data.message) ? res.data.message : 'Error'; }
         })
         .catch(function(){ status.textContent = 'Network error'; });
     }
+
+    // Smooth scroll to booking block
     if(e.target && e.target.classList.contains('hr-book-link')){
       e.preventDefault();
       var roomId = e.target.getAttribute('data-room-id');
-      // Scroll to booking section if exists
       var booking = document.querySelector('.hr-booking[data-room-id="'+roomId+'"]');
       if(booking){ booking.scrollIntoView({behavior:'smooth'}); }
     }
+
+    // Booking form: check availability
     if(e.target && e.target.classList.contains('hr-check-availability-btn')){
       var root = e.target.closest('.hr-booking');
       var ci = qs(root, 'input[name="checkin"]').value;
@@ -53,15 +50,28 @@
       status.textContent = 'Checking...';
       post('hr_check_availability', { room_id: roomId, checkin: ci, checkout: co })
         .then(function(res){
-          if(res && res.success){
-            status.textContent = res.data.available ? ('Available — Total ' + res.data.formatted_total) : 'Not available';
-            qs(root, '.hr-create-booking-btn').disabled = !res.data.available;
+          var payBtn = root.querySelector('.hr-pay-reserve-btn');
+          var noPayBtn = root.querySelector('.hr-create-booking-btn');
+          var payBox = root.querySelector('.hr-pay-card');
+          if(res && res.success && res.data.available){
+            status.textContent = 'Available — Total ' + res.data.formatted_total;
+            noPayBtn.disabled = false;
+            if(HR_Ajax && HR_Ajax.payments_enabled && HR_Ajax.stripe_pk){
+              payBtn.style.display = 'inline-block';
+              payBtn.disabled = false;
+              payBox.style.display = 'block';
+              StripeMount.mount(root);
+            }
           } else {
-            status.textContent = (res && res.data && res.data.message) ? res.data.message : 'Error';
+            status.textContent = (res && res.data && res.data.message) ? res.data.message : 'Not available';
+            noPayBtn.disabled = true;
+            if(payBtn){ payBtn.disabled = true; }
           }
         })
         .catch(function(){ status.textContent = 'Network error'; });
     }
+
+    // Offline reserve
     if(e.target && e.target.classList.contains('hr-create-booking-btn')){
       var root = e.target.closest('.hr-booking');
       var data = {
@@ -77,33 +87,64 @@
       e.target.disabled = true;
       post('hr_create_booking', data)
         .then(function(res){
-          if(res && res.success){
-            status.textContent = res.data.message + ' #' + res.data.booking_id + ' – Total ' + res.data.formatted_total;
-          } else {
-            status.textContent = (res && res.data && res.data.message) ? res.data.message : 'Error';
-            e.target.disabled = false;
-          }
+          if(res && res.success){ status.textContent = res.data.message + ' #' + res.data.booking_id + ' – Total ' + res.data.formatted_total; }
+          else { status.textContent = (res && res.data && res.data.message) ? res.data.message : 'Error'; e.target.disabled = false; }
         })
         .catch(function(){ status.textContent = 'Network error'; e.target.disabled = false; });
     }
-  });
 
-  // Auto-update estimated total in booking form
-  document.addEventListener('change', function(e){
-    if(e.target && (e.target.name === 'checkin' || e.target.name === 'checkout')){
+    // Card payment reserve
+    if(e.target && e.target.classList.contains('hr-pay-reserve-btn')){
       var root = e.target.closest('.hr-booking');
-      if(!root) return;
-      var price = parseFloat(qs(root, '.hr-total-amount').getAttribute('data-price')||'0');
-      var ci = qs(root, 'input[name="checkin"]').value;
-      var co = qs(root, 'input[name="checkout"]').value;
-      if(ci && co){
-        var nights = Math.max(0, Math.round((new Date(co) - new Date(ci)) / (1000*60*60*24)));
-        var total = nights * price;
-        if(!isFinite(total)) total = 0;
-        qs(root, '.hr-total-amount').textContent = qs(root, '.hr-total-amount').textContent.replace(/[^\d.,₱$€£¥]+/g,'');
-        // We rely on server for formatting on check; here show raw approximate
-        qs(root, '.hr-total-amount').textContent = total.toFixed(2);
-      }
+      var data = {
+        room_id: root.getAttribute('data-room-id'),
+        checkin: qs(root, 'input[name="checkin"]').value,
+        checkout: qs(root, 'input[name="checkout"]').value,
+        guest_name: qs(root, 'input[name="guest_name"]').value,
+        guest_email: qs(root, 'input[name="guest_email"]').value,
+        guest_phone: qs(root, 'input[name="guest_phone"]').value
+      };
+      var status = qs(root, '.hr-status');
+      status.textContent = 'Creating payment...';
+      e.target.disabled = true;
+      post('hr_create_payment_intent', data)
+        .then(function(res){
+          if(!(res && res.success)) throw new Error((res && res.data && res.data.message)||'Stripe error');
+          return StripeMount.confirm(res.data.client_secret, data)
+            .then(function(result){
+              if(result.error) throw new Error(result.error.message);
+              return post('hr_mark_booking_paid', { booking_id: res.data.booking_id, payment_intent_id: result.paymentIntent.id });
+            });
+        })
+        .then(function(done){
+          if(done && done.success){ status.textContent = done.data.message; }
+          else { throw new Error((done && done.data && done.data.message)||'Could not finalize booking'); }
+        })
+        .catch(function(err){ status.textContent = (err && err.message) ? err.message : 'Payment failed'; e.target.disabled = false; });
     }
   });
+
+  // Stripe helper
+  var StripeMount = (function(){
+    var stripe = null, elements = null, card = null;
+    function ensure(){
+      if(!HR_Ajax || !HR_Ajax.payments_enabled || !HR_Ajax.stripe_pk) return null;
+      if(!stripe){ stripe = Stripe(HR_Ajax.stripe_pk); elements = stripe.elements(); }
+      if(!card){ card = elements.create('card'); }
+      return { stripe: stripe, card: card };
+    }
+    return {
+      mount: function(root){
+        var ctx = ensure(); if(!ctx) return;
+        var el = root.querySelector('.hr-card-element');
+        if(el && !el.dataset.mounted){ ctx.card.mount(el); el.dataset.mounted='1'; }
+      },
+      confirm: function(clientSecret, data){
+        var ctx = ensure(); if(!ctx) return Promise.reject(new Error('Stripe not ready'));
+        return ctx.stripe.confirmCardPayment(clientSecret, {
+          payment_method: { card: ctx.card, billing_details: { name: data.guest_name, email: data.guest_email } }
+        });
+      }
+    };
+  })();
 })();

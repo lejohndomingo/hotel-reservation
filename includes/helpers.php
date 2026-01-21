@@ -27,7 +27,6 @@ class HR_Helpers {
         $today = strtotime(date('Y-m-d'));
         if ($ci < $today) return false;
         if ($co <= $ci) return false;
-        // Limit to 30 nights for sanity
         $nights = self::count_nights($checkin, $checkout);
         return ($nights > 0 && $nights <= 30);
     }
@@ -39,23 +38,14 @@ class HR_Helpers {
     }
 
     public static function room_available($room_id, $checkin, $checkout) {
-        // Availability is calculated by ensuring no overlapping confirmed/pending bookings.
         $args = [
             'post_type' => 'hr_booking',
             'post_status' => 'publish',
             'posts_per_page' => -1,
             'meta_query' => [
                 'relation' => 'AND',
-                [
-                    'key' => 'hr_room_id',
-                    'value' => $room_id,
-                    'compare' => '='
-                ],
-                [
-                    'key' => 'hr_status',
-                    'value' => ['pending', 'confirmed'],
-                    'compare' => 'IN'
-                ]
+                [ 'key' => 'hr_room_id', 'value' => $room_id, 'compare' => '=' ],
+                [ 'key' => 'hr_status', 'value' => ['pending','pending_payment','confirmed'], 'compare' => 'IN' ],
             ]
         ];
         $q = new WP_Query($args);
@@ -64,9 +54,7 @@ class HR_Helpers {
             while ($q->have_posts()) { $q->the_post();
                 $b_ci = get_post_meta(get_the_ID(), 'hr_checkin', true);
                 $b_co = get_post_meta(get_the_ID(), 'hr_checkout', true);
-                if (self::dates_overlap($checkin, $checkout, $b_ci, $b_co)) {
-                    $available = false; break;
-                }
+                if (self::dates_overlap($checkin, $checkout, $b_ci, $b_co)) { $available = false; break; }
             }
             wp_reset_postdata();
         }
@@ -76,7 +64,6 @@ class HR_Helpers {
     public static function dates_overlap($start1, $end1, $start2, $end2) {
         $s1 = strtotime($start1); $e1 = strtotime($end1);
         $s2 = strtotime($start2); $e2 = strtotime($end2);
-        // Overlap if start < other_end and other_start < end
         return ($s1 < $e2) && ($s2 < $e1);
     }
 }
