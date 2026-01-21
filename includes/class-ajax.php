@@ -10,7 +10,6 @@ class HRT_Ajax {
         add_action('wp_ajax_hrt_create_booking', ['HRT_Ajax', 'create_booking']);
         add_action('wp_ajax_nopriv_hrt_create_booking', ['HRT_Ajax', 'create_booking']);
 
-        // Stripe
         add_action('wp_ajax_hrt_create_payment_intent', ['HRT_Ajax', 'create_payment_intent']);
         add_action('wp_ajax_nopriv_hrt_create_payment_intent', ['HRT_Ajax', 'create_payment_intent']);
         add_action('wp_ajax_hrt_mark_booking_paid', ['HRT_Ajax', 'mark_booking_paid']);
@@ -31,7 +30,7 @@ class HRT_Ajax {
             wp_send_json_error(['message' => __('Invalid dates', 'hotel-reservation-lite')], 400);
         }
         $avail = HRT_Helpers::room_type_availability($type_id, $checkin, $checkout);
-        $total = HRT_Helpers::calculate_total($type_id, $checkin, $checkout);
+        $total = HRT_Helpers::calculate_total_best_rate($type_id, $checkin, $checkout);
         wp_send_json_success([
             'available' => (bool) $avail['available'],
             'remaining' => (int) $avail['remaining'],
@@ -61,7 +60,7 @@ class HRT_Ajax {
             wp_send_json_error(['message' => __('Not available for selected dates.', 'hotel-reservation-lite')], 409);
         }
 
-        $total  = HRT_Helpers::calculate_total($type_id, $checkin, $checkout);
+        $total  = HRT_Helpers::calculate_total_best_rate($type_id, $checkin, $checkout);
 
         $booking_id = wp_insert_post([
             'post_type' => 'hrt_booking',
@@ -93,7 +92,6 @@ Total: %s
         wp_send_json_success(['booking_id' => $booking_id, 'formatted_total' => hrt_format_price($total), 'message' => __('Reservation created! Check your email for confirmation.', 'hotel-reservation-lite')]);
     }
 
-    // ===== Stripe =====
     public static function create_payment_intent() {
         check_ajax_referer('hrt_ajax_nonce', 'nonce');
         $type_id = isset($_POST['room_type_id']) ? absint($_POST['room_type_id']) : 0;
@@ -116,7 +114,7 @@ Total: %s
             wp_send_json_error(['message' => __('Not available for selected dates.', 'hotel-reservation-lite')], 409);
         }
 
-        $total  = HRT_Helpers::calculate_total($type_id, $checkin, $checkout);
+        $total  = HRT_Helpers::calculate_total_best_rate($type_id, $checkin, $checkout);
         $currency = strtolower(get_option('hr_currency', 'PHP'));
         $amount_minor = HRT_Stripe::minor_amount($currency, $total);
 

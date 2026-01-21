@@ -17,7 +17,6 @@
   }
 
   document.addEventListener('click', function(e){
-    // List availability
     if(e.target && e.target.classList.contains('hrt-check-btn')){
       var type = e.target.closest('.hrt-type');
       var wrap = e.target.closest('.hrt-search');
@@ -35,7 +34,6 @@
         .catch(function(){ status.textContent = 'Network error'; });
     }
 
-    // Scroll to booking block
     if(e.target && e.target.classList.contains('hrt-book-link')){
       e.preventDefault();
       var id = e.target.getAttribute('data-room-type-id');
@@ -43,7 +41,6 @@
       if(booking){ booking.scrollIntoView({behavior:'smooth'}); }
     }
 
-    // Booking: check availability
     if(e.target && e.target.classList.contains('hrt-check-availability-btn')){
       var root = e.target.closest('.hrt-booking');
       var ci = qs(root, 'input[name="checkin"]').value;
@@ -74,7 +71,6 @@
         .catch(function(){ status.textContent = 'Network error'; });
     }
 
-    // Offline reserve
     if(e.target && e.target.classList.contains('hrt-create-booking-btn')){
       var root = e.target.closest('.hrt-booking');
       var data = {
@@ -96,7 +92,6 @@
         .catch(function(){ status.textContent = 'Network error'; e.target.disabled = false; });
     }
 
-    // Pay & reserve
     if(e.target && e.target.classList.contains('hrt-pay-reserve-btn')){
       var root = e.target.closest('.hrt-booking');
       var data = {
@@ -127,7 +122,6 @@
     }
   });
 
-  // Stripe helper
   var StripeMount = (function(){
     var stripe = null, elements = null, card = null;
     function ensure(){

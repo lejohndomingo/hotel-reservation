@@ -28,7 +28,7 @@ class HRT_Helpers {
         if ($ci < $today) return false;
         if ($co <= $ci) return false;
         $nights = self::count_nights($checkin, $checkout);
-        return ($nights > 0 && $nights <= 30);
+        return ($nights > 0 && $nights <= 90); // Allow up to 90 nights when using monthly rates
     }
 
     public static function count_nights($checkin, $checkout) {
@@ -70,32 +70,48 @@ class HRT_Helpers {
     }
 
     /**
-     * Seasonal pricing total. For each night starting from check-in,
-     * pick the season price if date in [start, end) else base.
+     * Best-rate total using seasonal nightly, weekly (7), and monthly (30) blocks via DP.
      */
-    public static function calculate_total($type_id, $checkin, $checkout) {
-        $nights = self::count_nights($checkin, $checkout);
-        if ($nights <= 0) return 0.0;
+    public static function calculate_total_best_rate($type_id, $checkin, $checkout) {
+        $n = self::count_nights($checkin, $checkout);
+        if ($n <= 0) return 0.0;
         $base = (float) get_post_meta($type_id, 'hr_price_per_night', true);
         $seasons = get_post_meta($type_id, 'hr_seasons', true);
         if (!is_array($seasons)) { $seasons = []; }
-        $total = 0.0;
-        $cur = new DateTime($checkin);
-        $end = new DateTime($checkout);
-        while ($cur < $end) {
+        $weekly_rate = (float) get_post_meta($type_id, 'hr_weekly_rate', true);
+        $monthly_rate = (float) get_post_meta($type_id, 'hr_monthly_rate', true);
+        $has_week = $weekly_rate > 0; $has_month = $monthly_rate > 0;
+
+        // nightly array
+        $dates = [];
+        $cur = new DateTime($checkin); $end = new DateTime($checkout);
+        while ($cur < $end) { $dates[] = $cur->format('Y-m-d'); $cur->modify('+1 day'); }
+        $nightly = [];
+        foreach ($dates as $d) {
             $price = $base;
-            $d = $cur->format('Y-m-d');
             foreach ($seasons as $row) {
-                $s = !empty($row['start']) ? $row['start'] : '';
-                $e = !empty($row['end']) ? $row['end'] : '';
+                $s = $row['start'] ?? ''; $e = $row['end'] ?? '';
                 $p = isset($row['price']) ? (float)$row['price'] : 0.0;
-                if ($s && $e && $p > 0) {
-                    if ($d >= $s && $d < $e) { $price = $p; break; }
-                }
+                if ($s && $e && $p > 0 && $d >= $s && $d < $e) { $price = $p; break; }
             }
-            $total += $price;
-            $cur->modify('+1 day');
+            $nightly[] = $price;
         }
-        return $total;
+
+        // prefix sums
+        $pref = [0]; foreach ($nightly as $i=>$v) { $pref[] = $pref[$i] + (float)$v; }
+        $sum = function($l,$r) use ($pref) { return $pref[$r] - $pref[$l]; };
+
+        $dp = array_fill(0, $n+1, 0.0);
+        for ($i = $n-1; $i >= 0; $i--) {
+            $best = $nightly[$i] + $dp[$i+1];
+            if ($has_week && $i+7 <= $n) {
+                $best = min($best, min($weekly_rate, $sum($i,$i+7)) + $dp[$i+7]);
+            }
+            if ($has_month && $i+30 <= $n) {
+                $best = min($best, min($monthly_rate, $sum($i,$i+30)) + $dp[$i+30]);
+            }
+            $dp[$i] = $best;
+        }
+        return (float) $dp[0];
     }
 }

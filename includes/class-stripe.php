@@ -28,9 +28,9 @@ class HRT_Stripe {
     private static function form_encode($params, $prefix = '') {
         $pairs = [];
         foreach ($params as $key => $value) {
-            if ($prefix) { $key = $prefix + '[' + $key + ']'; }
-            if (is_array($value)) { $pairs.append(self::form_encode($value, $key)); }
-            else { $pairs.append(rawurlencode($key) + '=' + rawurlencode($value)); }
+            if ($prefix) { $key = $prefix . '[' . $key . ']'; }
+            if (is_array($value)) { $pairs[] = self::form_encode($value, $key); }
+            else { $pairs[] = rawurlencode($key) . '=' . rawurlencode($value); }
         }
         return implode('&', $pairs);
     }

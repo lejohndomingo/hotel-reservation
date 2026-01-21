@@ -31,7 +31,6 @@ class HRT_Post_Types {
         ];
         register_post_type('hrt_room_type', $args);
 
-        // Meta boxes
         add_action('add_meta_boxes', function() {
             add_meta_box('hrt_type_meta', __('Room Type Details', 'hotel-reservation-lite'), ['HRT_Post_Types', 'render_type_meta'], 'hrt_room_type', 'normal', 'default');
         });
@@ -43,6 +42,8 @@ class HRT_Post_Types {
         $price = get_post_meta($post->ID, 'hr_price_per_night', true);
         $capacity = get_post_meta($post->ID, 'hr_capacity', true);
         $quantity = get_post_meta($post->ID, 'hr_quantity', true);
+        $weekly = get_post_meta($post->ID, 'hr_weekly_rate', true);
+        $monthly = get_post_meta($post->ID, 'hr_monthly_rate', true);
         ?>
         <style>.hrt-season-table input{width:100%;}</style>
         <div class="postbox-inside">
@@ -57,6 +58,14 @@ class HRT_Post_Types {
         <p>
             <label for="hr_quantity"><strong><?php esc_html_e('Quantity (number of rooms of this type)', 'hotel-reservation-lite'); ?></strong></label>
             <input type="number" min="1" step="1" id="hr_quantity" name="hr_quantity" value="<?php echo esc_attr($quantity ? $quantity : 1); ?>" class="widefat" />
+        </p>
+        <p>
+            <label for="hr_weekly_rate"><strong><?php esc_html_e('Weekly rate (7 nights)', 'hotel-reservation-lite'); ?></strong></label>
+            <input type="number" min="0" step="0.01" id="hr_weekly_rate" name="hr_weekly_rate" value="<?php echo esc_attr($weekly); ?>" class="widefat" />
+        </p>
+        <p>
+            <label for="hr_monthly_rate"><strong><?php esc_html_e('Monthly rate (30 nights)', 'hotel-reservation-lite'); ?></strong></label>
+            <input type="number" min="0" step="0.01" id="hr_monthly_rate" name="hr_monthly_rate" value="<?php echo esc_attr($monthly); ?>" class="widefat" />
         </p>
         <hr/>
         <p><strong><?php esc_html_e('Seasonal pricing', 'hotel-reservation-lite'); ?></strong></p>
@@ -114,9 +123,13 @@ class HRT_Post_Types {
         $price = isset($_POST['hr_price_per_night']) ? floatval($_POST['hr_price_per_night']) : 0;
         $cap = isset($_POST['hr_capacity']) ? intval($_POST['hr_capacity']) : 1;
         $qty = isset($_POST['hr_quantity']) ? intval($_POST['hr_quantity']) : 1;
+        $weekly = isset($_POST['hr_weekly_rate']) ? floatval($_POST['hr_weekly_rate']) : 0;
+        $monthly = isset($_POST['hr_monthly_rate']) ? floatval($_POST['hr_monthly_rate']) : 0;
         update_post_meta($post_id, 'hr_price_per_night', $price);
         update_post_meta($post_id, 'hr_capacity', max(1, $cap));
         update_post_meta($post_id, 'hr_quantity', max(1, $qty));
+        update_post_meta($post_id, 'hr_weekly_rate', max(0, $weekly));
+        update_post_meta($post_id, 'hr_monthly_rate', max(0, $monthly));
 
         // Save seasons
         $labels = isset($_POST['hr_season_label']) ? (array) $_POST['hr_season_label'] : [];
