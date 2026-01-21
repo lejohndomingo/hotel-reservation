@@ -1,0 +1,17 @@
+
+.hr-search, .hr-booking { border:1px solid #e5e7eb; border-radius:10px; padding:16px; margin:16px 0; background:#fff; }
+.hr-inline-form { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
+.hr-inline-form input[type=date]{ padding:6px 8px; border:1px solid #ddd; border-radius:6px; }
+.hr-inline-form button{ padding:8px 12px; border:1px solid #ccc; border-radius:8px; background:#f7fafc; cursor:pointer; }
+.hr-hint{ color:#6b7280; font-size:12px; }
+.hr-room-list{ display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:12px; }
+.hr-room{ display:flex; gap:12px; border:1px solid #eee; border-radius:10px; padding:10px; background:#fafafa; }
+.hr-room-thumb img{ width:120px; height:120px; object-fit:cover; border-radius:8px; }
+.hr-room-meta{ display:flex; gap:12px; color:#374151; margin:8px 0; }
+.hr-actions{ display:flex; gap:10px; align-items:center; }
+.hr-actions .hr-check-btn, .hr-actions .hr-book-link{ padding:6px 10px; border:1px solid #d1d5db; border-radius:8px; background:#fff; text-decoration:none; }
+.hr-availability-status{ color:#059669; font-weight:600; }
+.hr-form-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px; }
+.hr-booking input{ padding:8px; border:1px solid #ddd; border-radius:6px; width:100%; }
+.hr-total{ grid-column: 1 / -1; display:flex; gap:8px; align-items:center; margin-top:8px; }
+.hr-status{ margin-left:10px; font-weight:600; }
