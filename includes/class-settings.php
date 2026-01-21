@@ -3,106 +3,38 @@
 if (!defined('ABSPATH')) { exit; }
 
 class HRT_Settings {
-    public static function init() {
-        add_action('admin_menu', ['HRT_Settings', 'menu']);
-        add_action('admin_init', ['HRT_Settings', 'settings']);
-    }
-
-    public static function menu() {
-        add_options_page(
-            __('Hotel Reservation', 'hotel-reservation-lite'),
-            __('Hotel Reservation', 'hotel-reservation-lite'),
-            'manage_options',
-            'hrt-settings',
-            ['HRT_Settings', 'render']
-        );
-    }
-
+    public static function init() { add_action('admin_menu',['HRT_Settings','menu']); add_action('admin_init',['HRT_Settings','settings']); }
+    public static function menu() { add_options_page(__('Hotel Reservation','hotel-reservation-lite'), __('Hotel Reservation','hotel-reservation-lite'), 'manage_options', 'hrt-settings', ['HRT_Settings','render']); }
     public static function settings() {
-        register_setting('hrt_settings_group', 'hr_currency', [ 'type' => 'string', 'default' => 'PHP', 'sanitize_callback' => 'sanitize_text_field' ]);
-        register_setting('hrt_settings_group', 'hr_price_decimals', [ 'type' => 'integer', 'default' => 2, 'sanitize_callback' => 'absint' ]);
-        register_setting('hrt_settings_group', 'hr_stripe_pk', [ 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ]);
-        register_setting('hrt_settings_group', 'hr_stripe_sk', [ 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ]);
-        register_setting('hrt_settings_group', 'hr_stripe_webhook_secret', [ 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ]);
-        register_setting('hrt_settings_group', 'hr_min_nights_mode', [ 'type' => 'string', 'default' => 'arrival_only', 'sanitize_callback' => 'sanitize_text_field' ]);
-        register_setting('hrt_settings_group', 'hr_max_nights_mode', [ 'type' => 'string', 'default' => 'arrival_only', 'sanitize_callback' => 'sanitize_text_field' ]);
+        register_setting('hrt_settings_group','hr_currency',['type'=>'string','default'=>'PHP','sanitize_callback'=>'sanitize_text_field']);
+        register_setting('hrt_settings_group','hr_price_decimals',['type'=>'integer','default'=>2,'sanitize_callback'=>'absint']);
+        register_setting('hrt_settings_group','hr_stripe_pk',['type'=>'string','default'=>'','sanitize_callback'=>'sanitize_text_field']);
+        register_setting('hrt_settings_group','hr_stripe_sk',['type'=>'string','default'=>'','sanitize_callback'=>'sanitize_text_field']);
+        register_setting('hrt_settings_group','hr_stripe_webhook_secret',['type'=>'string','default'=>'','sanitize_callback'=>'sanitize_text_field']);
+        register_setting('hrt_settings_group','hr_min_nights_mode',['type'=>'string','default'=>'arrival_only','sanitize_callback'=>'sanitize_text_field']);
+        register_setting('hrt_settings_group','hr_max_nights_mode',['type'=>'string','default'=>'arrival_only','sanitize_callback'=>'sanitize_text_field']);
 
-        add_settings_section('hrt_main', __('General', 'hotel-reservation-lite'), function() {
-            echo '<p>' . esc_html__('Configure currency and formatting.', 'hotel-reservation-lite') . '</p>';
-        }, 'hrt-settings');
+        add_settings_section('hrt_main', __('General','hotel-reservation-lite'), function(){ echo '<p>'.esc_html__('Configure currency and formatting.','hotel-reservation-lite').'</p>'; }, 'hrt-settings');
+        add_settings_field('hr_currency_field', __('Currency','hotel-reservation-lite'), function(){ $val=get_option('hr_currency','PHP'); echo '<select name="hr_currency">'; foreach(['PHP','USD','EUR','GBP','JPY'] as $c){ printf('<option value="%s" %s>%s</option>', esc_attr($c), selected($val,$c,false), esc_html($c)); } echo '</select>'; }, 'hrt-settings','hrt_main');
+        add_settings_field('hr_price_decimals_field', __('Price decimals','hotel-reservation-lite'), function(){ $val=get_option('hr_price_decimals',2); printf('<input type="number" name="hr_price_decimals" min="0" max="4" value="%d" />',(int)$val); }, 'hrt-settings','hrt_main');
 
-        add_settings_field('hr_currency_field', __('Currency', 'hotel-reservation-lite'), function() {
-            $val = get_option('hr_currency', 'PHP');
-            ?>
-            <select name="hr_currency">
-                <?php foreach (['PHP','USD','EUR','GBP','JPY'] as $c) { printf('<option value="%s" %s>%s</option>', esc_attr($c), selected($val, $c, false), esc_html($c)); } ?>
-            </select>
-            <?php
-        }, 'hrt-settings', 'hrt_main');
+        add_settings_section('hrt_pay', __('Stripe Payments','hotel-reservation-lite'), function(){ echo '<p>'.esc_html__('Enable card payments with Stripe. Use test keys in development.','hotel-reservation-lite').'</p>'; }, 'hrt-settings');
+        add_settings_field('hr_stripe_pk_field', __('Publishable key','hotel-reservation-lite'), function(){ $val=get_option('hr_stripe_pk',''); printf('<input type="text" name="hr_stripe_pk" value="%s" class="regular-text" placeholder="pk_live_... or pk_test_..." />', esc_attr($val)); }, 'hrt-settings','hrt_pay');
+        add_settings_field('hr_stripe_sk_field', __('Secret key','hotel-reservation-lite'), function(){ $val=get_option('hr_stripe_sk',''); printf('<input type="password" name="hr_stripe_sk" value="%s" class="regular-text" placeholder="sk_live_... or sk_test_..." />', esc_attr($val)); }, 'hrt-settings','hrt_pay');
+        add_settings_field('hr_stripe_webhook_secret_field', __('Webhook signing secret (optional)','hotel-reservation-lite'), function(){ $val=get_option('hr_stripe_webhook_secret',''); printf('<input type="password" name="hr_stripe_webhook_secret" value="%s" class="regular-text" placeholder="whsec_..." />', esc_attr($val)); echo '<p class="description">'.esc_html__('Set your webhook to /wp-json/hrt/v1/stripe/webhook','hotel-reservation-lite').'</p>'; }, 'hrt-settings','hrt_pay');
 
-        add_settings_field('hr_price_decimals_field', __('Price decimals', 'hotel-reservation-lite'), function() {
-            $val = get_option('hr_price_decimals', 2);
-            printf('<input type="number" name="hr_price_decimals" min="0" max="4" value="%d" />', (int) $val);
-        }, 'hrt-settings', 'hrt_main');
-
-        add_settings_section('hrt_pay', __('Stripe Payments', 'hotel-reservation-lite'), function(){
-            echo '<p>' . esc_html__('Enable card payments with Stripe. Use test keys in development.', 'hotel-reservation-lite') . '</p>';
-        }, 'hrt-settings');
-
-        add_settings_field('hr_stripe_pk_field', __('Publishable key', 'hotel-reservation-lite'), function(){
-            $val = get_option('hr_stripe_pk', '');
-            printf('<input type="text" name="hr_stripe_pk" value="%s" class="regular-text" placeholder="pk_live_... or pk_test_..." />', esc_attr($val));
-        }, 'hrt-settings', 'hrt_pay');
-
-        add_settings_field('hr_stripe_sk_field', __('Secret key', 'hotel-reservation-lite'), function(){
-            $val = get_option('hr_stripe_sk', '');
-            printf('<input type="password" name="hr_stripe_sk" value="%s" class="regular-text" placeholder="sk_live_... or sk_test_..." />', esc_attr($val));
-        }, 'hrt-settings', 'hrt_pay');
-
-        add_settings_field('hr_stripe_webhook_secret_field', __('Webhook signing secret (optional)', 'hotel-reservation-lite'), function(){
-            $val = get_option('hr_stripe_webhook_secret', '');
-            printf('<input type="password" name="hr_stripe_webhook_secret" value="%s" class="regular-text" placeholder="whsec_..." />', esc_attr($val));
-            echo '<p class="description">' . esc_html__('Set your webhook to /wp-json/hrt/v1/stripe/webhook', 'hotel-reservation-lite') . '</p>';
-        }, 'hrt-settings', 'hrt_pay');
+        add_settings_section('hrt_rules', __('Stay Rules','hotel-reservation-lite'), function(){ echo '<p>'.esc_html__('Control how minimum and maximum nights per season are enforced.','hotel-reservation-lite').'</p>'; }, 'hrt-settings');
+        add_settings_field('hr_min_nights_mode_field', __('Min nights enforcement','hotel-reservation-lite'), function(){ $val=get_option('hr_min_nights_mode','arrival_only'); ?>
+            <label><input type="radio" name="hr_min_nights_mode" value="arrival_only" <?php checked($val,'arrival_only'); ?> /> <?php esc_html_e('Arrival night only','hotel-reservation-lite'); ?></label><br/>
+            <label><input type="radio" name="hr_min_nights_mode" value="cover_all" <?php checked($val,'cover_all'); ?> /> <?php esc_html_e('Every overlapped season (strict)','hotel-reservation-lite'); ?></label>
+            <p class="description"><?php esc_html_e('Arrival-only: only the season containing the check-in date imposes its minimum. Strict: each season overlapped by the stay must meet its own minimum for the nights falling inside it.','hotel-reservation-lite'); ?></p>
+        <?php }, 'hrt-settings','hrt_rules');
+        add_settings_field('hr_max_nights_mode_field', __('Max nights enforcement','hotel-reservation-lite'), function(){ $val=get_option('hr_max_nights_mode','arrival_only'); ?>
+            <label><input type="radio" name="hr_max_nights_mode" value="arrival_only" <?php checked($val,'arrival_only'); ?> /> <?php esc_html_e('Arrival night only','hotel-reservation-lite'); ?></label><br/>
+            <label><input type="radio" name="hr_max_nights_mode" value="cover_all" <?php checked($val,'cover_all'); ?> /> <?php esc_html_e('Every overlapped season (strict)','hotel-reservation-lite'); ?></label>
+            <p class="description"><?php esc_html_e('Arrival-only: only the season containing the check-in date imposes its maximum. Strict: each season overlapped by the stay must not exceed its own maximum for the nights falling inside it.','hotel-reservation-lite'); ?></p>
+        <?php }, 'hrt-settings','hrt_rules');
     }
 
-    public static function render() {
-        if (!current_user_can('manage_options')) return;
-        echo '<div class="wrap">';
-        echo '<h1>' . esc_html__('Hotel Reservation Settings', 'hotel-reservation-lite') . '</h1>';
-        echo '<form method="post" action="options.php">';
-        settings_fields('hrt_settings_group');
-        do_settings_sections('hrt-settings');
-        submit_button();
-        echo '</form>';
-        echo '</div>';
-    }
+    public static function render() { if(!current_user_can('manage_options')) return; echo '<div class="wrap">'; echo '<h1>'.esc_html__('Hotel Reservation Settings','hotel-reservation-lite').'</h1>'; echo '<form method="post" action="options.php">'; settings_fields('hrt_settings_group'); do_settings_sections('hrt-settings'); submit_button(); echo '</form>'; echo '</div>'; }
 }
-
-
-add_settings_section('hrt_rules', __('Stay Rules', 'hotel-reservation-lite'), function(){
-    echo '<p>' . esc_html__('Control how minimum nights per season are enforced.', 'hotel-reservation-lite') . '</p>';
-}, 'hrt-settings');
-
-add_settings_field('hr_min_nights_mode_field', __('Min nights enforcement', 'hotel-reservation-lite'), function(){
-    $val = get_option('hr_min_nights_mode', 'arrival_only');
-    ?>
-    <label><input type="radio" name="hr_min_nights_mode" value="arrival_only" <?php checked($val, 'arrival_only'); ?> />
-        <?php esc_html_e('Arrival night only', 'hotel-reservation-lite'); ?></label><br/>
-    <label><input type="radio" name="hr_min_nights_mode" value="cover_all" <?php checked($val, 'cover_all'); ?> />
-        <?php esc_html_e('Every overlapped season (strict)', 'hotel-reservation-lite'); ?></label>
-    <p class="description"><?php esc_html_e('Arrival-only: only the season containing the check-in date imposes its minimum. Strict: each season overlapped by the stay must meet its own minimum for the nights falling inside it.', 'hotel-reservation-lite'); ?></p>
-    <?php
-}, 'hrt-settings', 'hrt_rules');
-
-
-add_settings_field('hr_max_nights_mode_field', __('Max nights enforcement', 'hotel-reservation-lite'), function(){
-    $val = get_option('hr_max_nights_mode', 'arrival_only');
-    ?>
-    <label><input type="radio" name="hr_max_nights_mode" value="arrival_only" <?php checked($val, 'arrival_only'); ?> />
-        <?php esc_html_e('Arrival night only', 'hotel-reservation-lite'); ?></label><br/>
-    <label><input type="radio" name="hr_max_nights_mode" value="cover_all" <?php checked($val, 'cover_all'); ?> />
-        <?php esc_html_e('Every overlapped season (strict)', 'hotel-reservation-lite'); ?></label>
-    <p class="description"><?php esc_html_e('Arrival-only: only the season containing the check-in date imposes its maximum. Strict: each season overlapped by the stay must not exceed its own maximum for the nights falling inside it.', 'hotel-reservation-lite'); ?></p>
-    <?php
-}, 'hrt-settings', 'hrt_rules');
