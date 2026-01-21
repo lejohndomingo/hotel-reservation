@@ -169,3 +169,57 @@ public static function season_min_nights_check($type_id, $checkin, $checkout) {
     }
     return [ 'ok' => true, 'message' => '' ];
 }
+
+
+/**
+ * Enforce max nights per season.
+ * Mode (option hr_max_nights_mode):
+ *  - 'arrival_only' (default): If check-in night falls inside a season with max>0, total stay nights must be <= max.
+ *  - 'cover_all': For every season overlapped by the stay, the number of nights that fall in that season must be <= max.
+ * Returns ['ok'=>bool, 'message'=>string]
+ */
+public static function season_max_nights_check($type_id, $checkin, $checkout) {
+    $seasons = get_post_meta($type_id, 'hr_seasons', true);
+    if (!is_array($seasons)) { $seasons = []; }
+    $mode = get_option('hr_max_nights_mode', 'arrival_only');
+    $nights = self::count_nights($checkin, $checkout);
+    if ($nights <= 0) {
+        return [ 'ok' => false, 'message' => __('Invalid dates.', 'hotel-reservation-lite') ];
+    }
+    // Helper to count nights in intersection with a season
+    $count_overlap_nights = function($s, $e) use ($checkin, $checkout) {
+        $start = max(strtotime($s), strtotime($checkin));
+        $end   = min(strtotime($e), strtotime($checkout));
+        if ($start >= $end) return 0;
+        $d1 = new DateTime(date('Y-m-d', $start));
+        $d2 = new DateTime(date('Y-m-d', $end));
+        return (int)$d1->diff($d2)->format('%a');
+    };
+
+    if ($mode === 'arrival_only') {
+        $d = $checkin; // first night
+        foreach ($seasons as $row) {
+            $s = $row['start'] ?? ''; $e = $row['end'] ?? '';
+            $max = isset($row['max']) ? (int)$row['max'] : 0;
+            if ($max > 0 && $s && $e && $d >= $s && $d < $e) {
+                if ($nights > $max) {
+                    return [ 'ok' => false, 'message' => sprintf(__('Maximum %d nights allowed for selected dates.', 'hotel-reservation-lite'), $max) ];
+                }
+                break; // first matching season governs arrival rule
+            }
+        }
+        return [ 'ok' => true, 'message' => '' ];
+    }
+    // cover_all mode
+    foreach ($seasons as $row) {
+        $s = $row['start'] ?? ''; $e = $row['end'] ?? '';
+        $max = isset($row['max']) ? (int)$row['max'] : 0;
+        if ($max > 0 && $s && $e) {
+            $k = $count_overlap_nights($s, $e);
+            if ($k > $max) {
+                return [ 'ok' => false, 'message' => sprintf(__('Nights inside %s are limited to %d nights (you selected %d).', 'hotel-reservation-lite'), esc_html($row['label'] ?? __('season', 'hotel-reservation-lite')), $max, $k) ];
+            }
+        }
+    }
+    return [ 'ok' => true, 'message' => '' ];
+}
